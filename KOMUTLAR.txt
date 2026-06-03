@@ -1,0 +1,72 @@
+============================================================
+ PYNQ-Z2 + NEO-6M GPS - CALISTIRMA KOMUTLARI
+============================================================
+
+KABLO BAGLANTISI (Raspberry Pi header, RPi header):
+  GPS VCC  ->  Pin 1   (3.3V)
+  GPS GND  ->  Pin 6   (GND)
+  GPS TX   ->  Pin 10
+  GPS RX   ->  Pin 8
+  (TX/RX capraz baglanir. Kabloyu GUC KAPALIYKEN tak/cikar.)
+
+BITSTREAM:  gps_uart.bin   (PMOD degil, RPi header surumu)
+
+------------------------------------------------------------
+ A) CANLI WEB PANOSU (harita + uydu)  --  EN PRATIK
+------------------------------------------------------------
+PuTTY/SSH ile kartta:
+
+  cd ~/jupyter_notebooks
+  bash run_gps_web.sh
+
+Sonra PC tarayicidan ac:
+
+  http://192.168.2.99:8080
+
+------------------------------------------------------------
+ B) SADECE TERMINAL (Enlem / Boylam yazisi)
+------------------------------------------------------------
+  cd ~/jupyter_notebooks
+  bash run_gps.sh
+
+Veya adim adim:
+
+  cd ~/jupyter_notebooks
+  sudo cp gps_uart.bin /lib/firmware/gps_uart.bin
+  echo gps_uart.bin | sudo tee /sys/class/fpga_manager/fpga0/firmware
+  cat /sys/class/fpga_manager/fpga0/state          # "operating" olmali
+  sudo python3 neo_gps_pynq.py --skip-overlay --no-sudo
+
+------------------------------------------------------------
+ C) TANILAMA (sorun varsa)
+------------------------------------------------------------
+  # 10 sn ham byte + register dokumu
+  sudo python3 neo_gps_pynq.py --skip-overlay --probe --no-sudo
+
+  # 8 sn byte sayim testi
+  sudo python3 neo_gps_pynq.py --skip-overlay --test-only --no-sudo
+
+  # Loopback (GPS cikar, Pin 8 <-> Pin 10 jumper)
+  sudo python3 neo_gps_pynq.py --skip-overlay --loopback --no-sudo
+
+------------------------------------------------------------
+ WEB SUNUCUSUNU DURDURMA / YENIDEN BASLATMA
+------------------------------------------------------------
+  # durdur
+  sudo fuser -k 8080/tcp
+
+  # yeniden baslat
+  cd ~/jupyter_notebooks && bash run_gps_web.sh
+
+  # log izle
+  tail -f /tmp/gps_web.log
+
+------------------------------------------------------------
+ NOTLAR
+------------------------------------------------------------
+- Fix (konum kilidi) icin anteni acik gokyuzune/pencereye koy,
+  ilk fix 1-5 dk surebilir.
+- Kart acikken GPS kablosu oynatma -> "Bus error" / AXI abort.
+- Kart IP: 192.168.2.99   PC IP: 192.168.2.10
+- PuTTY: COM5 @ 115200   |   SSH/Jupyter sifre: xilinx
+============================================================

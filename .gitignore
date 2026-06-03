@@ -1,0 +1,32 @@
+# --- Vivado uretilen/gecici dosyalar ---
+vivado/build/
+vivado/.Xil/
+vivado/*.jou
+vivado/*.log
+vivado/*.backup.jou
+vivado/*.backup.log
+vivado/NA/
+*.str
+
+# --- Bootgen ara dosyalari (gerekli olanlar kalir: .bit .bin .hwh) ---
+output/*.bif
+output/*.bit.bin
+
+# --- Xilinx kullanim kilavuzu (telif - repoya konmaz) ---
+pynqz2_user_manual_v1_0.pdf
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Calisma sirasinda olusan gecici dosyalar ---
+_*.sh

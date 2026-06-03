@@ -1,0 +1,13 @@
+# Shell scriptleri her zaman LF (Linux/PYNQ kartinda calisir)
+*.sh text eol=lf
+
+# Python LF
+*.py text eol=lf
+
+# Bitstream / ikili dosyalar
+*.bit binary
+*.bin binary
+*.hwh binary
+*.jpg binary
+*.png binary
+*.pdf binary
