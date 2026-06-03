@@ -9,6 +9,10 @@ cümlelerini ayrıştırır — PYNQ Overlay API'sine ihtiyaç duymaz.
 
 > Web panosu: harita üzerinde canlı konum, fix durumu ve uydu sinyal (SNR) çubukları.
 
+![GPS Web Panosu](docs/dashboard.png)
+
+> Not: Görseldeki koordinatlar örnek/temsilîdir (İstanbul, Eminönü).
+
 ## Özellikler
 
 - FPGA tabanlı donanım UART (AXI UART Lite @ `0x42C00000`, 9600 baud)
