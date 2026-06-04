@@ -30,3 +30,8 @@ Thumbs.db
 
 # --- Calisma sirasinda olusan gecici dosyalar ---
 _*.sh
+_ro_check.txt
+output/i2c_gpio_addr.txt
+
+# --- Local SSH deploy helpers (not part of the project) ---
+vivado/ssh_*.bat

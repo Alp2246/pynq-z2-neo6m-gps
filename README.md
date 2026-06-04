@@ -1,132 +1,161 @@
-# PYNQ-Z2 + NEO-6M GPS
+# PYNQ-Z2 Sensor Platform
 
-Ublox **NEO-6M** GPS modülünü **PYNQ-Z2** (Zynq-7020) FPGA kartı ile okuyan, koordinatları
-terminalde ve **canlı web panosunda** (harita + uydu sinyalleri) gösteren proje.
+FPGA-accelerated sensor stack for the **TUL PYNQ-Z2** (Xilinx Zynq-7020): **NEO-6M GPS** over AXI UART and **MPU6050** (6-axis IMU) over **bit-bang I2C** via AXI GPIO. Both paths use direct **`/dev/mem` MMIO** — no PYNQ Overlay Python API required.
 
-GPS modülü, FPGA içinde oluşturulan bir **AXI UART Lite** çekirdeğine (9600 baud) Raspberry Pi
-header üzerinden bağlanır. Yazılım, UART register'larını `/dev/mem` üzerinden okuyarak NMEA
-cümlelerini ayrıştırır — PYNQ Overlay API'sine ihtiyaç duymaz.
+| Subsystem | Interface | Overlay | Live dashboard |
+|-----------|-----------|---------|----------------|
+| Ublox NEO-6M GPS | AXI UART Lite @ `0x42C00000` | `gps_uart` | `http://<board>:8080` (GPS) |
+| MPU6050 (GY-521) | AXI GPIO I2C @ `0x41200000` | `i2c_gpio` | `http://<board>:8080` (IMU) |
 
-> Web panosu: harita üzerinde canlı konum, fix durumu ve uydu sinyal (SNR) çubukları.
+---
 
-![GPS Web Panosu](docs/dashboard.png)
+## MPU6050 — Live Web Dashboard
 
-> Not: Görseldeki koordinatlar örnek/temsilîdir (İstanbul, Eminönü).
+Real-time accelerometer, gyroscope, orientation (pitch/roll), temperature, 3D attitude cube, and scrolling charts.
 
-## Özellikler
+![MPU6050 Live Dashboard](docs/mpu6050_dashboard.png)
 
-- FPGA tabanlı donanım UART (AXI UART Lite @ `0x42C00000`, 9600 baud)
-- `/dev/mem` (MMIO) ile doğrudan register erişimi — PYNQ Overlay gerektirmez
-- NMEA ayrıştırma: `GGA`, `RMC` (konum), `GSV` (uydu sinyalleri)
-- Canlı web panosu: Leaflet harita + konum + uydu SNR çubukları
-- Terminal okuyucu + tanılama modları (probe, loopback, tx-test)
-- `fpga_manager` ile `.bin` yükleme (Overlay API'siz)
+Typical readings with the board flat on a desk: **Z ≈ 1.0 g**, pitch/roll near 0°, gyro bias within a few °/s.
 
-## Donanım
+---
 
-| Parça | Açıklama |
-|-------|----------|
-| PYNQ-Z2 | Zynq XC7Z020, PYNQ 2.7 imajı |
-| Ublox NEO-6M | GY-NEO6MV2 modülü, 9600 baud |
-| Bağlantı | Raspberry Pi header (40 pin) |
+## GPS — Live Web Dashboard
 
-### Kablo bağlantısı (Raspberry Pi header)
+NMEA parsing (`GGA`, `RMC`, `GSV`), map position, fix quality, and satellite SNR bars.
 
-GPS ile FPGA UART **çapraz** bağlanır:
+![GPS Live Dashboard](docs/dashboard.png)
 
-| GPS pini | RPi header pin | Zynq | Açıklama |
-|----------|----------------|------|----------|
-| VCC | **Pin 1** (3.3V) | — | Güç |
-| GND | **Pin 6** | — | Toprak |
-| TX | **Pin 10** | Y6 | GPS gönderir → FPGA RX |
-| RX | **Pin 8** | V6 | FPGA TX → GPS alır |
+> Map tiles are loaded by the browser from the internet; the board only serves JSON and HTML.
 
-> **Önemli:** Pin atamaları resmi PYNQ-Z2 `base.xdc` ile doğrulanmıştır
-> (Pin 8 = `V6`, Pin 10 = `Y6`). Kabloları **kart kapalıyken** tak/çıkar.
+---
 
-## Hızlı başlangıç
+## Hardware
 
-### 1. Bitstream'i karta kopyala
+### MPU6050 (I2C) — Raspberry Pi header
 
-`output/` içindeki dosyaları kartın `~/jupyter_notebooks/` klasörüne yükle:
+| MPU6050 pin | PYNQ-Z2 RPi header | FPGA pin | Notes |
+|-------------|-------------------|----------|-------|
+| **VCC** | **Pin 1** (3.3 V) | — | **Do not use 5 V** — module pull-ups tie to VCC |
+| **GND** | **Pin 6** | — | Ground |
+| **SDA** | **Pin 3** | **W18** | AXI GPIO bit 0 |
+| **SCL** | **Pin 5** | **W19** | AXI GPIO bit 1 |
+| AD0, INT, XDA, XCL | — | — | Leave unconnected (address `0x68`) |
 
-- `gps_uart.bin` — fpga_manager bitstream
-- `gps_uart.hwh` — donanım handoff (XML)
-- `neo_gps_pynq.py`, `gps_web.py`, `run_gps.sh`, `run_gps_web.sh`
+![MPU6050 Wiring](docs/mpu6050_wiring.png)
 
-### 2. Terminal okuma
+### NEO-6M GPS (UART) — Raspberry Pi header
 
-```bash
-cd ~/jupyter_notebooks
-bash run_gps.sh
-```
+| GPS pin | RPi header | FPGA pin | Direction |
+|---------|------------|----------|-----------|
+| VCC | Pin 1 (3.3 V) or Pin 2 (5 V) | — | Power |
+| GND | Pin 6 | — | Ground |
+| TX | **Pin 10** | Y6 | GPS → FPGA RX |
+| RX | **Pin 8** | V6 | FPGA TX → GPS RX |
 
-Fix alınınca:
+Pin assignments match the official PYNQ-Z2 `base.xdc` (V6 / Y6).
 
-```
-Enlem : 41.015137 derece
-Boylam: 28.979530 derece
-```
+---
 
-### 3. Canlı web panosu
+## Quick Start (PYNQ SD card)
+
+Default USB-Ethernet IP is often **`192.168.2.99`**. Login: `xilinx` / `xilinx`.
+
+### 1. Load the I2C overlay (MPU6050)
 
 ```bash
-bash run_gps_web.sh
+sudo cp i2c_gpio.bin /lib/firmware/
+echo i2c_gpio.bin | sudo tee /sys/class/fpga_manager/fpga0/firmware
 ```
 
-Sonra PC tarayıcıdan aç: **`http://<KART_IP>:8080`**
-(harita karoları için PC'nin internete bağlı olması yeterli; kartın internete ihtiyacı yok).
-
-## Tanılama modları
+### 2. Run the IMU dashboard
 
 ```bash
-# 10 sn ham byte + register dökümü
-sudo python3 neo_gps_pynq.py --skip-overlay --probe --no-sudo
-
-# 8 sn byte sayım testi
-sudo python3 neo_gps_pynq.py --skip-overlay --test-only --no-sudo
-
-# Loopback (GPS çıkar, Pin 8 ↔ Pin 10 jumper)
-sudo python3 neo_gps_pynq.py --skip-overlay --loopback --no-sudo
+cd sensors
+sudo bash runweb.sh    # starts http://192.168.2.99:8080
 ```
 
-## Bitstream'i yeniden derleme (Vivado 2022.2)
+Or read values in the terminal:
 
-```bat
-cd vivado
-run_build.bat
+```bash
+sudo python3 mpu6050.py --axi-gpio
+sudo python3 axi_gpio_i2c.py --scan
 ```
 
-Bu script otomatik olarak: Zynq PS7 + AXI UART Lite blok tasarımı kurar, `rpi_uart.xdc`
-kısıtlarını uygular, sentez + implementasyon çalıştırır, bitstream ve `fpga_manager` `.bin`
-dosyasını `output/` klasörüne üretir.
+### 3. GPS (optional, separate overlay)
 
-> PMOD A pinleri için alternatif: `run_build_pmod.bat` (`pmoda_uart.xdc`, `gps_uart_pmod.*`).
+```bash
+echo gps_uart.bin | sudo tee /sys/class/fpga_manager/fpga0/firmware
+sudo python3 gps_web.py --skip-overlay
+```
 
-## Proje yapısı
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Linux (ARM) — Python                                   │
+│  mpu_web.py / mpu6050.py  →  /dev/mem @ 0x41200000      │
+│  gps_web.py / neo_gps_pynq.py  →  /dev/mem @ 0x42C00000 │
+└───────────────────────────┬─────────────────────────────┘
+                            │ AXI (GP0)
+┌───────────────────────────▼─────────────────────────────┐
+│  PL (FPGA)                                              │
+│  axi_gpio_0  →  bit-bang I2C  →  RPi Pin 3/5 (W18/W19) │
+│  axi_uartlite_0  →  9600 baud  →  RPi Pin 8/10 (V6/Y6)  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**I2C bit-bang:** Open-drain on bidirectional GPIO. `TRI=1` releases the line (pull-up high); `TRI=0` drives low. No Linux `i2c-dev` or device-tree node required.
+
+---
+
+## Repository Layout
 
 ```
 neo_gps/
-├── neo_gps_pynq.py        # Ana GPS okuyucu (MMIO UART, NMEA parse)
-├── gps_web.py             # Canlı web panosu (HTTP + Leaflet)
-├── neo_gps.py             # Windows/COM (USB-TTL) sürümü
-├── run_gps.sh             # Bitstream yükle + terminal okuma
-├── run_gps_web.sh         # Bitstream yükle + web panosu
-├── output/                # Üretilmiş bitstream'ler (.bit .bin .hwh)
+├── sensors/
+│   ├── axi_gpio_i2c.py      # MMIO bit-bang I2C master
+│   ├── mpu6050.py           # IMU reader (AXI GPIO or smbus)
+│   ├── mpu_web.py           # Live IMU web dashboard
+│   ├── setup_mpu6050.sh     # Deploy helper (wget + fpga_manager)
+│   └── runweb.sh            # Start dashboard in background
+├── neo_gps_pynq.py          # GPS reader (MMIO UART)
+├── gps_web.py               # GPS web dashboard
+├── output/
+│   ├── i2c_gpio.{bit,bin,hwh}   # MPU6050 overlay artifacts
+│   └── gps_uart.{bit,bin,hwh}   # GPS overlay artifacts
+├── docs/
+│   ├── mpu6050_dashboard.png
+│   ├── mpu6050_wiring.png
+│   └── dashboard.png
 └── vivado/
-    ├── build_gps_uart.tcl      # Otomatik Vivado build (RPi)
-    ├── build_gps_uart_pmod.tcl # Otomatik Vivado build (PMOD A)
-    ├── rpi_uart.xdc            # Pin kısıtları (Pin 8/10 = V6/Y6)
-    ├── pmoda_uart.xdc          # Pin kısıtları (PMOD A = Y18/Y19)
-    └── run_build*.bat          # Build başlatıcılar
+    ├── build_i2c_gpio.tcl   # Build I2C overlay (Vivado 2022.2)
+    ├── build_gps_uart.tcl   # Build GPS overlay
+    ├── rpi_i2c.xdc          # SDA=W18, SCL=W19
+    └── rpi_uart.xdc         # UART V6/Y6
 ```
 
-## Notlar
+---
 
-- PYNQ **2.7** imajı kullanılmıştır (3.x'te overlay yükleme sorunları yaşandı).
-- Bitstream `.bit` yerine byte-swapped `.bin` ile `fpga_manager`'a yüklenir.
-- Kart açıkken GPS kablosu oynatmak `Bus error` / AXI abort'a yol açabilir.
+## Rebuild Bitstreams (Vivado 2022.2)
 
-## Lisans
+```bat
+cd vivado
+run_build_i2c.bat    REM → output/i2c_gpio.*
+run_build.bat        REM → output/gps_uart.*
+```
 
-MIT — bkz. [LICENSE](LICENSE).
+---
+
+## Requirements
+
+- **Board:** TUL PYNQ-Z2, PYNQ image (tested on v3.1 / Linux 5.4)
+- **Tools:** Vivado 2022.2 (for rebuilding overlays)
+- **Sensors:** GY-521 (MPU6050), Ublox NEO-6M (9600 baud NMEA)
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
