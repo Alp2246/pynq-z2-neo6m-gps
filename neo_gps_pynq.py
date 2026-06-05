@@ -10,6 +10,7 @@ veya:
 """
 
 import argparse
+import fcntl
 import mmap
 import os
 import shutil
@@ -18,6 +19,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Optional, Tuple
+
+UART_LOCK = "/tmp/neo_gps_uart.lock"
 
 BAUD_RATE = 9600
 DEFAULT_OVERLAY = "gps_uart.bit"
@@ -60,13 +63,13 @@ def resolve_bin_file(bitfile: Path) -> Path:
     )
 
 
-def load_overlay_sysfs(bitfile: Path) -> None:
+def load_overlay_sysfs(bitfile: Path, force: bool = False) -> None:
     binfile = resolve_bin_file(bitfile)
     if not FPGA_MANAGER_FW.exists():
         raise RuntimeError("fpga_manager yok")
 
     state = FPGA_MANAGER_STATE.read_text().strip() if FPGA_MANAGER_STATE.exists() else ""
-    if state == "operating":
+    if state == "operating" and not force:
         print("[INFO] FPGA zaten operating durumda, bitstream atlanabilir.")
         return
 
@@ -87,6 +90,7 @@ def load_overlay_sysfs(bitfile: Path) -> None:
             last_state = state
         if state == "operating":
             print("[OK] Bitstream yuklendi.")
+            time.sleep(1.0)
             return
         if state in {"unknown", "error"}:
             break
@@ -125,8 +129,19 @@ class MmioUart:
 
     SR_RX_VALID = 0x01
     SR_TX_EMPTY = 0x04
+    CR_ENABLE = 0x01
+    CR_FIFO_RESET = 0x03
 
     def __init__(self, base: int = UART_BASE_ADDR, size: int = UART_MAP_SIZE) -> None:
+        self._lock_fd = os.open(UART_LOCK, os.O_CREAT | os.O_RDWR, 0o666)
+        try:
+            fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(
+                "UART baska programda acik (gps_web veya neo_gps_pynq).\n"
+                "  Pencere 1'de web acikken pencere 2'de neo_gps CALISTIRMA.\n"
+                "  sudo pkill -f gps_web.py"
+            ) from None
         self._fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
         self._map = mmap.mmap(
             self._fd,
@@ -135,10 +150,22 @@ class MmioUart:
             mmap.PROT_READ | mmap.PROT_WRITE,
             offset=base,
         )
+        self.reset_fifos()
+
+    def reset_fifos(self) -> None:
+        self._write32(self.CR, self.CR_FIFO_RESET)
+        time.sleep(0.05)
+        self._write32(self.CR, 0x00)
+        time.sleep(0.02)
 
     def close(self) -> None:
         self._map.close()
         os.close(self._fd)
+        try:
+            fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+            os.close(self._lock_fd)
+        except OSError:
+            pass
 
     def _read32(self, offset: int) -> int:
         self._map.seek(offset)

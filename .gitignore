@@ -32,6 +32,14 @@ Thumbs.db
 _*.sh
 _ro_check.txt
 output/i2c_gpio_addr.txt
+_*.py
+_api_test.json
 
-# --- Local SSH deploy helpers (not part of the project) ---
+# --- Logic Analyzer / buyuk capture dosyalari ---
+output/*.sal
+output/la_*.csv
+
+# --- Local deploy helpers ---
+deploy_la_test.*
+fix_and_web.sh
 vivado/ssh_*.bat

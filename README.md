@@ -1,91 +1,71 @@
-# PYNQ-Z2 Sensor Platform
+# PYNQ-Z2 + NEO-6M GPS — FPGA Web Dashboard
 
-FPGA-accelerated sensor stack for the **TUL PYNQ-Z2** (Xilinx Zynq-7020): **NEO-6M GPS** over AXI UART and **MPU6050** (6-axis IMU) over **bit-bang I2C** via AXI GPIO. Both paths use direct **`/dev/mem` MMIO** — no PYNQ Overlay Python API required.
+Live GPS on the **TUL PYNQ-Z2** (Zynq-7020): custom Vivado overlay, **AXI UART Lite** at `0x42C00000`, Python **MMIO** (`/dev/mem`), and a browser dashboard with map, fix status, satellite SNR, and **decoded NMEA** messages.
 
-| Subsystem | Interface | Overlay | Live dashboard |
-|-----------|-----------|---------|----------------|
-| Ublox NEO-6M GPS | AXI UART Lite @ `0x42C00000` | `gps_uart` | `http://<board>:8080` (GPS) |
-| MPU6050 (GY-521) | AXI GPIO I2C @ `0x41200000` | `i2c_gpio` | `http://<board>:8080` (IMU) |
+![PYNQ-Z2 with NEO-6M GPS wired on the Raspberry Pi header](docs/gps_hardware_setup.png)
 
----
-
-## MPU6050 — Live Web Dashboard
-
-Real-time accelerometer, gyroscope, orientation (pitch/roll), temperature, 3D attitude cube, and scrolling charts.
-
-![MPU6050 Live Dashboard](docs/mpu6050_dashboard.png)
-
-Typical readings with the board flat on a desk: **Z ≈ 1.0 g**, pitch/roll near 0°, gyro bias within a few °/s.
+| | |
+|---|---|
+| **Board** | TUL PYNQ-Z2 (PYNQ SD image, tested v3.1) |
+| **GPS** | u-blox NEO-6M (GY-NEO6MV2), 9600 baud NMEA |
+| **FPGA IP** | `axi_uartlite_0` → RPi pins **8** (TX) / **10** (RX) |
+| **Software** | `gps_web.py` — no PYNQ Overlay Python API |
+| **Dashboard** | `http://<board-ip>:8080` |
 
 ---
 
-## GPS — Live Web Dashboard
+## Features
 
-NMEA parsing (`GGA`, `RMC`, `GSV`), map position, fix quality, and satellite SNR bars.
+- **Live map** (OpenStreetMap tiles from the PC browser)
+- **Fix badge**, lat/lon/alt, UTC time, satellite count
+- **SNR bar chart** per visible satellite (from `$GPGSV`)
+- **NMEA tab** — GGA, RMC, GSA, GSV, VTG, GLL decoded field-by-field with Turkish explanations
+- **Terminal reader** — `neo_gps_pynq.py` for PuTTY / SSH
+- **Pre-built bitstream** — `output/gps_uart.bin` (load via `fpga_manager`)
 
-![GPS Live Dashboard](docs/dashboard.png)
-
-> Map tiles are loaded by the browser from the internet; the board only serves JSON and HTML.
-
----
-
-## Hardware
-
-### MPU6050 (I2C) — Raspberry Pi header
-
-| MPU6050 pin | PYNQ-Z2 RPi header | FPGA pin | Notes |
-|-------------|-------------------|----------|-------|
-| **VCC** | **Pin 1** (3.3 V) | — | **Do not use 5 V** — module pull-ups tie to VCC |
-| **GND** | **Pin 6** | — | Ground |
-| **SDA** | **Pin 3** | **W18** | AXI GPIO bit 0 |
-| **SCL** | **Pin 5** | **W19** | AXI GPIO bit 1 |
-| AD0, INT, XDA, XCL | — | — | Leave unconnected (address `0x68`) |
-
-![MPU6050 Wiring](docs/mpu6050_wiring.png)
-
-### NEO-6M GPS (UART) — Raspberry Pi header
-
-| GPS pin | RPi header | FPGA pin | Direction |
-|---------|------------|----------|-----------|
-| VCC | Pin 1 (3.3 V) or Pin 2 (5 V) | — | Power |
-| GND | Pin 6 | — | Ground |
-| TX | **Pin 10** | Y6 | GPS → FPGA RX |
-| RX | **Pin 8** | V6 | FPGA TX → GPS RX |
-
-Pin assignments match the official PYNQ-Z2 `base.xdc` (V6 / Y6).
+![Web dashboard with map and fix](docs/dashboard.png)
 
 ---
 
-## Quick Start (PYNQ SD card)
+## Hardware wiring
 
-Default USB-Ethernet IP is often **`192.168.2.99`**. Login: `xilinx` / `xilinx`.
+![NEO-6M module close-up](docs/neo6m_module.png)
 
-### 1. Load the I2C overlay (MPU6050)
+Cross-connect UART (GPS **TX** → FPGA **RX**, FPGA **TX** → GPS **RX**):
 
-```bash
-sudo cp i2c_gpio.bin /lib/firmware/
-echo i2c_gpio.bin | sudo tee /sys/class/fpga_manager/fpga0/firmware
-```
+| NEO-6M | PYNQ-Z2 RPi header | FPGA pin | Direction |
+|--------|-------------------|----------|-----------|
+| **VCC** | Pin **1** (3.3 V) | — | Power |
+| **GND** | Pin **6** | — | Ground |
+| **TX** | Pin **10** | Y6 | GPS → FPGA RX |
+| **RX** | Pin **8** | V6 | FPGA TX → GPS RX |
 
-### 2. Run the IMU dashboard
+Pin names match `vivado/rpi_uart.xdc` and the official PYNQ-Z2 `base.xdc` (V6 / Y6).
 
-```bash
-cd sensors
-sudo bash runweb.sh    # starts http://192.168.2.99:8080
-```
+> Antenna must see open sky for a fix. After boot, load `gps_uart.bin` — the GPS overlay is separate from the I2C/IMU overlay.
 
-Or read values in the terminal:
+---
 
-```bash
-sudo python3 mpu6050.py --axi-gpio
-sudo python3 axi_gpio_i2c.py --scan
-```
+## Quick start (on the board)
 
-### 3. GPS (optional, separate overlay)
+SSH: `xilinx@192.168.2.99` (default PYNQ USB-Ethernet), password `xilinx`.
 
 ```bash
+cd ~/neo_gps
 echo gps_uart.bin | sudo tee /sys/class/fpga_manager/fpga0/firmware
-sudo python3 gps_web.py --skip-overlay
+cat /sys/class/fpga_manager/fpga0/state    # must print: operating
+bash start_web.sh
+```
+
+Open in a browser: **http://192.168.2.99:8080**
+
+**Important:** run only **one** GPS program at a time (`gps_web.py` *or* `neo_gps_pynq.py`). Two processes on the same UART cause **bus error**.
+
+Terminal-only:
+
+```bash
+sudo python3 neo_gps_pynq.py --probe    # 10 s NMEA dump
+sudo python3 neo_gps_pynq.py            # continuous reader
 ```
 
 ---
@@ -93,69 +73,78 @@ sudo python3 gps_web.py --skip-overlay
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Linux (ARM) — Python                                   │
-│  mpu_web.py / mpu6050.py  →  /dev/mem @ 0x41200000      │
-│  gps_web.py / neo_gps_pynq.py  →  /dev/mem @ 0x42C00000 │
-└───────────────────────────┬─────────────────────────────┘
-                            │ AXI (GP0)
-┌───────────────────────────▼─────────────────────────────┐
-│  PL (FPGA)                                              │
-│  axi_gpio_0  →  bit-bang I2C  →  RPi Pin 3/5 (W18/W19) │
-│  axi_uartlite_0  →  9600 baud  →  RPi Pin 8/10 (V6/Y6)  │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Linux (ARM) — Python                                    │
+│  gps_web.py / neo_gps_pynq.py  →  /dev/mem @ 0x42C00000  │
+└────────────────────────────┬─────────────────────────────┘
+                             │ AXI GP0
+┌────────────────────────────▼─────────────────────────────┐
+│  PL (FPGA) — gps_uart.bit                                │
+│  axi_uartlite_0 @ 9600 baud  →  Pin 8 / Pin 10           │
+└────────────────────────────┬─────────────────────────────┘
+                             │ UART
+                      ┌──────▼──────┐
+                      │  NEO-6M GPS │
+                      └─────────────┘
 ```
 
-**I2C bit-bang:** Open-drain on bidirectional GPIO. `TRI=1` releases the line (pull-up high); `TRI=0` drives low. No Linux `i2c-dev` or device-tree node required.
+NMEA sentences (`$GPGGA`, `$GPRMC`, `$GPGSV`, `$GPGSA`, …) are parsed in Python. The web UI exposes each message type on the **NMEA** tab with human-readable field labels.
 
 ---
 
-## Repository Layout
+## Repository layout (GPS)
 
 ```
 neo_gps/
-├── sensors/
-│   ├── axi_gpio_i2c.py      # MMIO bit-bang I2C master
-│   ├── mpu6050.py           # IMU reader (AXI GPIO or smbus)
-│   ├── mpu_web.py           # Live IMU web dashboard
-│   ├── setup_mpu6050.sh     # Deploy helper (wget + fpga_manager)
-│   └── runweb.sh            # Start dashboard in background
-├── neo_gps_pynq.py          # GPS reader (MMIO UART)
-├── gps_web.py               # GPS web dashboard
-├── output/
-│   ├── i2c_gpio.{bit,bin,hwh}   # MPU6050 overlay artifacts
-│   └── gps_uart.{bit,bin,hwh}   # GPS overlay artifacts
+├── gps_web.py              # Live web dashboard + NMEA decoder UI
+├── neo_gps_pynq.py         # MMIO UART reader / probe
+├── start_web.sh            # One-command start on the board
+├── output/gps_uart.{bin,bit,hwh}
 ├── docs/
-│   ├── mpu6050_dashboard.png
-│   ├── mpu6050_wiring.png
-│   └── dashboard.png
+│   ├── gps_hardware_setup.png
+│   ├── neo6m_module.png
+│   ├── dashboard.png
+│   └── README_TR.md        # Türkçe kurulum rehberi
 └── vivado/
-    ├── build_i2c_gpio.tcl   # Build I2C overlay (Vivado 2022.2)
-    ├── build_gps_uart.tcl   # Build GPS overlay
-    ├── rpi_i2c.xdc          # SDA=W18, SCL=W19
-    └── rpi_uart.xdc         # UART V6/Y6
+    ├── build_gps_uart.tcl
+    └── rpi_uart.xdc
 ```
 
 ---
 
-## Rebuild Bitstreams (Vivado 2022.2)
+## Also in this repo: MPU6050 (I2C)
+
+Bit-bang I2C via **AXI GPIO** @ `0x41200000`, live IMU web dashboard, separate overlay `i2c_gpio.bin`.
+
+![MPU6050 dashboard](docs/mpu6050_dashboard.png)
+
+See wiring and setup in the same README sections or run `cd sensors && sudo bash runweb.sh` after loading `i2c_gpio.bin`.
+
+---
+
+## Rebuild bitstream (Vivado 2022.2)
 
 ```bat
 cd vivado
-run_build_i2c.bat    REM → output/i2c_gpio.*
-run_build.bat        REM → output/gps_uart.*
+run_build.bat          REM → output/gps_uart.*
+run_build_i2c.bat      REM → output/i2c_gpio.*
 ```
 
 ---
 
 ## Requirements
 
-- **Board:** TUL PYNQ-Z2, PYNQ image (tested on v3.1 / Linux 5.4)
-- **Tools:** Vivado 2022.2 (for rebuilding overlays)
-- **Sensors:** GY-521 (MPU6050), Ublox NEO-6M (9600 baud NMEA)
+- TUL PYNQ-Z2 + PYNQ image (Linux 5.4+)
+- u-blox NEO-6M @ 9600 baud
+- Vivado 2022.2 (only if rebuilding overlays)
+- PC browser with internet (for map tiles)
 
 ---
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+🇹🇷 [Türkçe kurulum ve sorun giderme](docs/README_TR.md)
