@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#58a6ff"/>
+    </marker>
+  </defs>
+  <rect width="820" height="420" fill="url(#bg)"/>
+  <text x="410" y="34" fill="#e6edf3" font-size="20" font-weight="700" text-anchor="middle">PYNQ-Z2 î NEO-6M Wiring (9600 baud UART)</text>
+
+  <!-- PYNQ box -->
+  <rect x="40" y="70" width="280" height="280" rx="12" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+  <text x="180" y="100" fill="#ff7b72" font-size="16" font-weight="700" text-anchor="middle">PYNQ-Z2</text>
+  <text x="180" y="122" fill="#8b949e" font-size="12" text-anchor="middle">Zynq-7020 ∑ RPi Header</text>
+
+  <!-- RPi pins -->
+  <rect x="70" y="150" width="220" height="170" rx="8" fill="#0d1117" stroke="#388bfd"/>
+  <text x="180" y="172" fill="#58a6ff" font-size="13" font-weight="600" text-anchor="middle">Raspberry Pi Header</text>
+  <text x="90" y="200" fill="#3fb950" font-size="13">Pin 1  ∑ 3.3 V  ê VCC</text>
+  <text x="90" y="225" fill="#8b949e" font-size="13">Pin 6  ∑ GND   ê GND</text>
+  <text x="90" y="250" fill="#d29922" font-size="13">Pin 8  ∑ TX    í GPS RX (V6)</text>
+  <text x="90" y="275" fill="#a371f7" font-size="13">Pin 10 ∑ RX    ê GPS TX (Y6)</text>
+  <text x="180" y="305" fill="#484f58" font-size="11" text-anchor="middle">FPGA: axi_uartlite_0 @ 0x42C00000</text>
+
+  <!-- GPS box -->
+  <rect x="500" y="90" width="280" height="240" rx="12" fill="#21262d" stroke="#30363d" stroke-width="2"/>
+  <text x="640" y="120" fill="#58a6ff" font-size="16" font-weight="700" text-anchor="middle">GY-NEO6MV2</text>
+  <text x="640" y="142" fill="#8b949e" font-size="12" text-anchor="middle">u-blox NEO-6M ∑ 9600 NMEA</text>
+  <rect x="530" y="160" width="220" height="140" rx="8" fill="#0d1117" stroke="#3fb950"/>
+  <text x="640" y="188" fill="#3fb950" font-size="13" font-weight="600" text-anchor="middle">Module pins</text>
+  <text x="550" y="215" fill="#3fb950" font-size="13">VCC</text>
+  <text x="550" y="240" fill="#8b949e" font-size="13">GND</text>
+  <text x="550" y="265" fill="#a371f7" font-size="13">TX  (data out)</text>
+  <text x="550" y="290" fill="#d29922" font-size="13">RX  (data in)</text>
+
+  <!-- Antenna -->
+  <rect x="560" y="340" width="160" height="36" rx="6" fill="#30363d"/>
+  <text x="640" y="363" fill="#e6edf3" font-size="12" text-anchor="middle">Ceramic patch antenna</text>
+
+  <!-- Wires -->
+  <line x1="290" y1="198" x2="530" y2="213" stroke="#3fb950" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="290" y1="223" x2="530" y2="238" stroke="#8b949e" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="530" y1="263" x2="290" y2="248" stroke="#a371f7" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="290" y1="273" x2="530" y2="288" stroke="#d29922" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <text x="410" y="400" fill="#8b949e" font-size="12" text-anchor="middle">Cross-connect: GPS TXíPin10, GPS RXíPin8 ∑ Power: 3.3V only</text>
+</svg>

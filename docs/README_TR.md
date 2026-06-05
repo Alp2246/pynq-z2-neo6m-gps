@@ -1,17 +1,21 @@
 # PYNQ-Z2 + NEO-6M GPS — Türkçe Rehber
 
-## Donanım
+## Donanım fotoğrafları
 
-![Kurulum fotoğrafı](gps_hardware_setup.png)
+![Kurulum — PYNQ-Z2 + NEO-6M](gps_hardware_setup.png)
 
-| GPS pini | PYNQ RPi header | Not |
-|----------|-----------------|-----|
-| VCC | Pin 1 (3.3 V) | Kırmızı/turuncu |
-| GND | Pin 6 | Siyah |
-| TX | **Pin 10** | GPS veri gönderir → FPGA okur |
-| RX | **Pin 8** | FPGA komut gönderir → GPS okur |
+![Kablolama şeması](wiring_diagram.svg)
 
 ![NEO-6M modül](neo6m_module.png)
+
+## Bağlantı tablosu
+
+| GPS pini | PYNQ RPi header | Açıklama |
+|----------|-----------------|----------|
+| VCC | Pin 1 (3.3 V) | Besleme |
+| GND | Pin 6 | Toprak |
+| TX | **Pin 10** | GPS veri gönderir → FPGA okur |
+| RX | **Pin 8** | FPGA yazar → GPS okur |
 
 ## Hızlı başlangıç
 
@@ -31,9 +35,21 @@ Tarayıcı: **http://192.168.2.99:8080**
 | **Pano** | Harita, fix, koordinat, uydu SNR |
 | **NMEA** | GGA/RMC/GSA/GSV/VTG/GLL — alan alan Türkçe açıklama |
 
+## Canlı çıktı örneği
+
+Karttan alınan gerçek veri: [sample_live_output.json](sample_live_output.json)
+
+```
+fix: true · 8 uydu · 36.767°N 34.542°E · rakım 48 m
+```
+
+## Mimari
+
+![Yazılım akışı](architecture.svg)
+
 ## Sık hatalar
 
-**Bus error** — İki GPS programı aynı anda çalışıyor veya yanlış bitstream yüklü.
+**Bus error** — İki GPS programı aynı anda çalışıyor veya yanlış bitstream.
 
 ```bash
 sudo pkill -f 'gps_web.py|neo_gps_pynq.py'
@@ -44,9 +60,8 @@ bash start_web.sh
 
 **Fix yok** — Anteni açık gökyüzüne çevir; 1–2 dakika bekle.
 
-**I2C testinden sonra GPS çalışmıyor** — `i2c_gpio.bin` yerine tekrar `gps_uart.bin` yükle.
+**I2C testinden sonra GPS çalışmıyor** — `gps_uart.bin` tekrar yükle.
 
-## PuTTY ile iki pencere
+## Sürüm
 
-1. **Pencere 1:** `bash start_web.sh` (sadece web)
-2. **Pencere 2:** `curl http://127.0.0.1:8080/data` (kontrol; `neo_gps_pynq.py` çalıştırma)
+**v1.0.0** — İlk kararlı sürüm. Detay: [CHANGELOG.md](../CHANGELOG.md)

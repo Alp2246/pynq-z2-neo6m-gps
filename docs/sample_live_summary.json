@@ -1,0 +1,18 @@
+{
+  "fix": true,
+  "quality": 1,
+  "lat": 36.76715,
+  "lon": 34.54178,
+  "alt": 51.5,
+  "sats_used": 7,
+  "time_utc": "154136.00",
+  "satellites_top_snr": [
+    {"prn": "01", "elev": "24", "azim": "176", "snr": 39},
+    {"prn": "07", "elev": "28", "azim": "206", "snr": 25},
+    {"prn": "26", "elev": "21", "azim": "070", "snr": 25}
+  ],
+  "nmea_types_decoded": ["GGA", "RMC", "GSA", "GSV", "VTG", "GLL"],
+  "fpga_state": "operating",
+  "captured_from": "http://192.168.2.99:8080/data",
+  "date": "2026-06-05"
+}
